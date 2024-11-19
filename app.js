@@ -5,12 +5,19 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 
 const usersRouter = require("./routes/usersRoutes");
+const postsRouter = require("./routes/postsRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5000; // Utilisation de la variable d'environnement ou par défaut 5000
 
 // Middleware pour autoriser les requêtes CORS et parser le corps des requêtes
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:3000"],
+    credentials: true,
+    exposedHeaders: ["set-cookie"],
+  })
+);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -33,7 +40,7 @@ mongoose
 // app.get("/", (req, res) => {
 //   res.send("Hello, world! Server is running!");
 // });
-
+app.use("/posts", postsRouter);
 app.use("/users", usersRouter);
 
 // Démarrage du serveur
