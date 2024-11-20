@@ -8,13 +8,11 @@ const postSchema = mongoose.Schema(
       required: true,
     },
 
-    // La description de l'article
     description: {
       type: String,
       required: true,
     },
 
-    // Le chemin de l'image associée à l'article
     imagePath: {
       type: [String],
       required: true,
@@ -25,15 +23,13 @@ const postSchema = mongoose.Schema(
       default: "uncategorized",
     },
 
-    // L'utilisateur qui a créé ce post (référence à un document User)
-    createdBy: {
+    author: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User", // La référence est vers le modèle "User"
     },
 
     tags: [String],
 
-    // Liste des utilisateurs ayant aimé ce post
     likes: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -41,7 +37,6 @@ const postSchema = mongoose.Schema(
       },
     ],
 
-    // Liste des commentaires associés au post
     comments: [
       {
         type: mongoose.Schema.Types.ObjectId,

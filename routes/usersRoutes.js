@@ -74,6 +74,7 @@ router.post("/signin", async (req, res) => {
     const user = await User.findOne({
       username: { $regex: new RegExp(username, "i") },
     });
+   
 
     if (user && (await bcrypt.compare(password, user.password))) {
       // If the user is found and the password matches

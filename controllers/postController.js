@@ -5,29 +5,31 @@ const { getImageFromUnsplash } = require("../utils/functions.js");
 // Contrôleur pour créer un post
 exports.createPost = async (req, res) => {
   try {
-    const { title, description, tags, selectedImage } = req.body;
+    const { title, description, category, tags, selectedImage } = req.body;
+    console.log(req.user);
+    if (!req.user) {
+      return res.status(401).json({ result: false, error: "Not Authorized" });
+    }
 
-    // Si les tags sont envoyés sous forme d'une chaîne séparée par des virgules, on les transforme en tableau
     const keywords =
       tags && tags.length > 0
         ? tags.split(",").map((tag) => tag.trim())
         : [title];
 
-    // Si une image a été sélectionnée, on l'utilise. Sinon, on récupère les images depuis Unsplash
     const imagePaths = selectedImage
       ? [selectedImage]
       : await getImageFromUnsplash(keywords);
 
-    // Crée un nouvel objet Post avec l'image récupérée
     const newPost = new Post({
       title,
       description,
+      category,
       imagePath: imagePaths,
       tags,
-      // createdBy: req.user._id, // Si tu as un système d'utilisateur authentifié
+      author: req.user.id,
     });
 
-    // Sauvegarde le post dans la base de données
+    // Sauvegarde du post dans la base de données
     const savedPost = await newPost.save();
 
     res.status(201).json({ message: "Post créé", savedPost });
@@ -39,13 +41,19 @@ exports.createPost = async (req, res) => {
 
 exports.getPosts = async (req, res) => {
   try {
-    const startIndex = parseInt(req.query.startIndex) || 0;
-    const limit = parseInt(req.query.limit) || 9;
-    const sortDirection = req.query.order === "asc" ? 1 : -1;
-    const posts = await Post.find({})
-      .sort({ updatedAt: sortDirection })
-      .skip(startIndex)
-      .limit(limit);
+    // Paramètres de pagination
+    const startIndex = parseInt(req.query.startIndex) || 0; // Point de départ
+    const limit = parseInt(req.query.limit) || 15; // Nombre d'articles à récupérer
+    const sortDirection = req.query.order === "asc" ? 1 : -1; // Tri par date de mise à jour
+
+    // Recherche des articles, avec peuplement de l'auteur
+    const posts = await Post.find()
+      .populate("author", "username") // Peupler le champ 'author' avec uniquement le champ 'username' de l'utilisateur
+      .sort({ updatedAt: sortDirection }) // Trier par la date de mise à jour
+      .skip(startIndex) // Sauter les articles déjà récupérés pour la pagination
+      .limit(limit); // Limiter le nombre d'articles récupérés
+
+    // Retourner les articles avec l'auteur peuplé
     res.status(200).json(posts);
   } catch (error) {
     console.error(error);
@@ -58,7 +66,7 @@ exports.getPosts = async (req, res) => {
 exports.getPostById = async (req, res) => {
   try {
     const { id } = req.params;
-    console.log(id);
+    // console.log(id);
     const post = await Post.findById(id);
 
     if (!post) {
@@ -72,7 +80,76 @@ exports.getPostById = async (req, res) => {
   }
 };
 
-// Dans le contrôleur
+// Update a post
+
+exports.updatePost = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, tags, selectedImage } = req.body;
+
+    // Recherche du post par ID
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post introuvable" });
+    }
+
+    if (post.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        message: "Accès interdit, vous n'êtes pas l'auteur de ce post",
+      });
+    }
+
+    if (title) post.title = title;
+    if (description) post.description = description;
+    if (tags) post.tags = tags.split(",").map((tag) => tag.trim());
+    if (selectedImage) post.imagePath = [selectedImage]; // Si une nouvelle image est donnée
+
+    const updatedPost = await post.save();
+
+    res.status(200).json({ message: "Post mis à jour", updatedPost });
+  } catch (error) {
+    console.error("Erreur lors de la mise à jour du post:", error);
+    res.status(500).json({ message: "Erreur du serveur" });
+  }
+};
+
+//Delete post
+exports.deletePost = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const post = await Post.findById(id);
+
+    if (!post) {
+      return res.status(404).json({ message: "Post introuvable" });
+    }
+
+    if (!post.author) {
+      return res
+        .status(400)
+        .json({ message: "L'auteur du post est introuvable" });
+    }
+
+    if (!req.user || !req.user._id) {
+      return res.status(401).json({ message: "Utilisateur non authentifié" });
+    }
+
+    if (post.author.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        message: "Accès interdit, vous n'êtes pas l'auteur de ce post",
+      });
+    }
+
+    await post.remove();
+
+    res.status(200).json({ message: "Post supprimé" });
+  } catch (error) {
+    console.error("Erreur lors de la suppression du post:", error);
+    res.status(500).json({ message: "Erreur du serveur" });
+  }
+};
+
 exports.getImages = async (req, res) => {
   const { tags } = req.query; // Récupérer les tags de la requête
 

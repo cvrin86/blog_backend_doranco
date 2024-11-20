@@ -3,7 +3,7 @@ exports.getImageFromUnsplash = async (keywords) => {
   const apiKey = process.env.UNSPLASH_API_KEY; // Récupérer la clé API depuis les variables d'environnement
   const url = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
     query
-  )}&client_id=${apiKey}&per_page=2`;
+  )}&client_id=${apiKey}&per_page=20`;
 
   try {
     const response = await fetch(url);

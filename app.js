@@ -3,6 +3,7 @@ require("dotenv").config(); // Charger les variables d'environnement
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+var cookieParser = require("cookie-parser");
 
 const usersRouter = require("./routes/usersRoutes");
 const postsRouter = require("./routes/postsRoutes");
@@ -19,6 +20,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 
 // Connexion à la base de données MongoDB
