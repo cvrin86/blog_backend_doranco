@@ -63,6 +63,31 @@ exports.getPosts = async (req, res) => {
   }
 };
 
+// Fonction pour récupérer les posts de l'utilisateur connecté
+exports.getPostsUser = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const startIndex = parseInt(req.query.startIndex) || 0;
+    const sortDirection = req.query.order === "asc" ? 1 : -1; 
+
+    // Recherche des articles de l'utilisateur connecté
+    const posts = await Post.find({ author: userId })
+      .populate("author", "username") 
+      .sort({ updatedAt: sortDirection }) 
+      .skip(startIndex) 
+     
+
+    // Retourner les articles avec l'auteur peuplé
+    res.status(200).json(posts);
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Erreur lors de la récupération des posts" });
+  }
+};
+
 exports.getPostById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -149,6 +174,12 @@ exports.deletePost = async (req, res) => {
     res.status(500).json({ message: "Erreur du serveur" });
   }
 };
+
+
+
+
+
+
 
 exports.getImages = async (req, res) => {
   const { tags } = req.query; // Récupérer les tags de la requête
