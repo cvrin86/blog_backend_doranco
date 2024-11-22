@@ -6,7 +6,7 @@ const { getImageFromUnsplash } = require("../utils/functions.js");
 exports.createPost = async (req, res) => {
   try {
     const { title, description, category, tags, selectedImage } = req.body;
-    console.log(req.user);
+    // console.log(req.user);
     if (!req.user) {
       return res.status(401).json({ result: false, error: "Not Authorized" });
     }
@@ -69,14 +69,13 @@ exports.getPostsUser = async (req, res) => {
     const userId = req.user.id;
 
     const startIndex = parseInt(req.query.startIndex) || 0;
-    const sortDirection = req.query.order === "asc" ? 1 : -1; 
+    const sortDirection = req.query.order === "asc" ? 1 : -1;
 
     // Recherche des articles de l'utilisateur connecté
     const posts = await Post.find({ author: userId })
-      .populate("author", "username") 
-      .sort({ updatedAt: sortDirection }) 
-      .skip(startIndex) 
-     
+      .populate("author", "username")
+      .sort({ updatedAt: sortDirection })
+      .skip(startIndex);
 
     // Retourner les articles avec l'auteur peuplé
     res.status(200).json(posts);
@@ -105,32 +104,32 @@ exports.getPostById = async (req, res) => {
   }
 };
 
-// Update a post
-
 exports.updatePost = async (req, res) => {
   try {
     const { id } = req.params;
+
+    console.log("idUpdate :", id);
     const { title, description, tags, selectedImage } = req.body;
 
-    // Recherche du post par ID
-    const post = await Post.findById(id);
+    // Mise à jour du post avec vérification de l'auteur directement
+    const updates = {
+      ...(title && { title }),
+      ...(description && { description }),
+      ...(tags && { tags: tags.split(",").map((tag) => tag.trim()) }),
+      ...(selectedImage && { imagePath: [selectedImage] }),
+    };
 
-    if (!post) {
-      return res.status(404).json({ message: "Post introuvable" });
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: id, author: req.user._id }, // Filtre par ID et auteur
+      updates,
+      { new: true } // Retourne le post mis à jour
+    );
+
+    if (!updatedPost) {
+      return res
+        .status(404)
+        .json({ message: "Post introuvable ou non autorisé" });
     }
-
-    if (post.author.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        message: "Accès interdit, vous n'êtes pas l'auteur de ce post",
-      });
-    }
-
-    if (title) post.title = title;
-    if (description) post.description = description;
-    if (tags) post.tags = tags.split(",").map((tag) => tag.trim());
-    if (selectedImage) post.imagePath = [selectedImage]; // Si une nouvelle image est donnée
-
-    const updatedPost = await post.save();
 
     res.status(200).json({ message: "Post mis à jour", updatedPost });
   } catch (error) {
@@ -139,47 +138,44 @@ exports.updatePost = async (req, res) => {
   }
 };
 
-//Delete post
 exports.deletePost = async (req, res) => {
   try {
-    const { id } = req.params;
+    const postId = req.params.id;
+    const userId = req.user.id;
 
-    const post = await Post.findById(id);
+    console.log("Suppression du post :", { postId, userId });
 
+    // Rechercher le post
+    const post = await Post.findById(postId);
     if (!post) {
+      console.log("Post introuvable");
       return res.status(404).json({ message: "Post introuvable" });
     }
 
+    // Vérifier l'auteur
     if (!post.author) {
+      console.error("Champ 'author' manquant dans le post :", post);
       return res
-        .status(400)
-        .json({ message: "L'auteur du post est introuvable" });
+        .status(500)
+        .json({ message: "Données invalides dans le post" });
     }
 
-    if (!req.user || !req.user._id) {
-      return res.status(401).json({ message: "Utilisateur non authentifié" });
+    if (post.author.toString() !== userId) {
+      console.log("Utilisateur non autorisé");
+      return res
+        .status(403)
+        .json({ message: "Vous n'êtes pas autorisé à supprimer ce post" });
     }
 
-    if (post.author.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        message: "Accès interdit, vous n'êtes pas l'auteur de ce post",
-      });
-    }
-
-    await post.remove();
-
-    res.status(200).json({ message: "Post supprimé" });
+    // Supprimer le post
+    await Post.findByIdAndDelete(postId);
+    console.log("Post supprimé avec succès !");
+    res.status(200).json({ message: "Le post a été supprimé" });
   } catch (error) {
-    console.error("Erreur lors de la suppression du post:", error);
+    console.error("Erreur lors de la suppression :", error);
     res.status(500).json({ message: "Erreur du serveur" });
   }
 };
-
-
-
-
-
-
 
 exports.getImages = async (req, res) => {
   const { tags } = req.query; // Récupérer les tags de la requête
