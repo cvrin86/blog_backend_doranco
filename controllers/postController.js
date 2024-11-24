@@ -1,12 +1,11 @@
 const Post = require("../models/postModel");
 const { isValidObjectId } = require("mongoose");
 const { getImageFromUnsplash } = require("../utils/functions.js");
+const Comment = require("../models/commentModel.js")
 
-// Contrôleur pour créer un post
 exports.createPost = async (req, res) => {
   try {
     const { title, description, category, tags, selectedImage } = req.body;
-    // console.log(req.user);
     if (!req.user) {
       return res.status(401).json({ result: false, error: "Not Authorized" });
     }
@@ -29,7 +28,6 @@ exports.createPost = async (req, res) => {
       author: req.user.id,
     });
 
-    // Sauvegarde du post dans la base de données
     const savedPost = await newPost.save();
 
     res.status(201).json({ message: "Post créé", savedPost });
@@ -41,19 +39,16 @@ exports.createPost = async (req, res) => {
 
 exports.getPosts = async (req, res) => {
   try {
-    // Paramètres de pagination
-    const startIndex = parseInt(req.query.startIndex) || 0; // Point de départ
-    const limit = parseInt(req.query.limit) || 15; // Nombre d'articles à récupérer
-    const sortDirection = req.query.order === "asc" ? 1 : -1; // Tri par date de mise à jour
+    const startIndex = parseInt(req.query.startIndex) || 0;
+    const limit = parseInt(req.query.limit) || 40;
+    const sortDirection = req.query.order === "asc" ? 1 : -1;
 
-    // Recherche des articles, avec peuplement de l'auteur
     const posts = await Post.find()
-      .populate("author", "username") // Peupler le champ 'author' avec uniquement le champ 'username' de l'utilisateur
-      .sort({ updatedAt: sortDirection }) // Trier par la date de mise à jour
-      .skip(startIndex) // Sauter les articles déjà récupérés pour la pagination
-      .limit(limit); // Limiter le nombre d'articles récupérés
+      .populate("author", "username")
+      .sort({ updatedAt: sortDirection })
+      .skip(startIndex)
+      .limit(limit);
 
-    // Retourner les articles avec l'auteur peuplé
     res.status(200).json(posts);
   } catch (error) {
     console.error(error);
@@ -63,7 +58,6 @@ exports.getPosts = async (req, res) => {
   }
 };
 
-// Fonction pour récupérer les posts de l'utilisateur connecté
 exports.getPostsUser = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -71,13 +65,11 @@ exports.getPostsUser = async (req, res) => {
     const startIndex = parseInt(req.query.startIndex) || 0;
     const sortDirection = req.query.order === "asc" ? 1 : -1;
 
-    // Recherche des articles de l'utilisateur connecté
     const posts = await Post.find({ author: userId })
       .populate("author", "username")
       .sort({ updatedAt: sortDirection })
       .skip(startIndex);
 
-    // Retourner les articles avec l'auteur peuplé
     res.status(200).json(posts);
   } catch (error) {
     console.error(error);
@@ -90,14 +82,13 @@ exports.getPostsUser = async (req, res) => {
 exports.getPostById = async (req, res) => {
   try {
     const { id } = req.params;
-    // console.log(id);
     const post = await Post.findById(id);
 
     if (!post) {
       return res.status(404).json({ error: "Article introuvable" });
     }
 
-    res.json({ posts: [post] }); // Retourner l'objet post dans un tableau
+    res.json({ posts: [post] });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Erreur du serveur" });
@@ -105,36 +96,27 @@ exports.getPostById = async (req, res) => {
 };
 
 exports.updatePost = async (req, res) => {
+  const { id } = req.params;
+  const { title, description, tags, selectedImage } = req.body;
+
   try {
-    const { id } = req.params;
+    const post = await Post.findById(id);
 
-    console.log("idUpdate :", id);
-    const { title, description, tags, selectedImage } = req.body;
-
-    // Mise à jour du post avec vérification de l'auteur directement
-    const updates = {
-      ...(title && { title }),
-      ...(description && { description }),
-      ...(tags && { tags: tags.split(",").map((tag) => tag.trim()) }),
-      ...(selectedImage && { imagePath: [selectedImage] }),
-    };
-
-    const updatedPost = await Post.findOneAndUpdate(
-      { _id: id, author: req.user._id }, // Filtre par ID et auteur
-      updates,
-      { new: true } // Retourne le post mis à jour
-    );
-
-    if (!updatedPost) {
-      return res
-        .status(404)
-        .json({ message: "Post introuvable ou non autorisé" });
+    if (!post) {
+      return res.status(404).json({ message: "Post non trouvé" });
     }
 
-    res.status(200).json({ message: "Post mis à jour", updatedPost });
+    post.title = title;
+    post.description = description;
+    post.tags = tags;
+    post.imagePath = selectedImage;
+
+    await post.save();
+
+    res.status(200).json({ message: "Post mis à jour avec succès", post });
   } catch (error) {
-    console.error("Erreur lors de la mise à jour du post:", error);
-    res.status(500).json({ message: "Erreur du serveur" });
+    console.error("Erreur lors de la mise à jour du post", error);
+    res.status(500).json({ message: "Erreur interne du serveur" });
   }
 };
 
@@ -143,33 +125,24 @@ exports.deletePost = async (req, res) => {
     const postId = req.params.id;
     const userId = req.user.id;
 
-    console.log("Suppression du post :", { postId, userId });
-
-    // Rechercher le post
     const post = await Post.findById(postId);
     if (!post) {
-      console.log("Post introuvable");
       return res.status(404).json({ message: "Post introuvable" });
     }
 
-    // Vérifier l'auteur
     if (!post.author) {
-      console.error("Champ 'author' manquant dans le post :", post);
       return res
         .status(500)
         .json({ message: "Données invalides dans le post" });
     }
 
     if (post.author.toString() !== userId) {
-      console.log("Utilisateur non autorisé");
       return res
         .status(403)
         .json({ message: "Vous n'êtes pas autorisé à supprimer ce post" });
     }
 
-    // Supprimer le post
     await Post.findByIdAndDelete(postId);
-    console.log("Post supprimé avec succès !");
     res.status(200).json({ message: "Le post a été supprimé" });
   } catch (error) {
     console.error("Erreur lors de la suppression :", error);
@@ -178,7 +151,7 @@ exports.deletePost = async (req, res) => {
 };
 
 exports.getImages = async (req, res) => {
-  const { tags } = req.query; // Récupérer les tags de la requête
+  const { tags } = req.query;
 
   if (!tags || tags.trim().length === 0) {
     return res.status(400).json({
@@ -200,3 +173,75 @@ exports.getImages = async (req, res) => {
     res.status(500).json({ message: "Erreur interne du serveur." });
   }
 };
+
+
+
+
+
+exports.likePost = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const userId = req.user._id; // Utilisateur connecté
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post non trouvé" });
+    }
+
+   
+    if (post.likes.includes(userId)) {
+      return res.status(400).json({ message: "Vous avez déjà aimé ce post" });
+    }
+
+   
+    post.likes.push(userId);
+    await post.save();
+
+    res.status(200).json({ message: "Post liké", likes: post.likes.length });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+};
+
+
+
+exports.commentPost = async (req, res) => {
+  try {
+    const { content } = req.body;
+    const postId = req.params.idPost;
+
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: 'Le commentaire ne peut pas être vide.' });
+    }
+
+    
+    const newComment = new Comment({
+      postId,
+      content,
+      author: req.user.id, 
+    });
+
+    const savedComment = await newComment.save();
+
+    const updatedPost = await Post.findByIdAndUpdate(
+      postId,
+      { $push: { comments: savedComment._id } },
+      { new: true }
+    ).populate('comments');
+
+    res.status(200).json(updatedPost); // Retourner le post mis à jour avec les commentaires
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Une erreur interne est survenue' });
+  }
+};
+
+
+
+
+
+
+
+
+
