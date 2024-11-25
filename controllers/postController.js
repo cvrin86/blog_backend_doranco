@@ -3,6 +3,9 @@ const { isValidObjectId } = require("mongoose");
 const { getImageFromUnsplash } = require("../utils/functions.js");
 const Comment = require("../models/commentModel.js")
 
+
+
+
 exports.createPost = async (req, res) => {
   try {
     const { title, description, category, tags, selectedImage } = req.body;
