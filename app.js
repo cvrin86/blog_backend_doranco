@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 5000; // Utilisation de la variable d'environne
 // Middleware pour autoriser les requêtes CORS et parser le corps des requêtes
 app.use(
   cors({
-    origin: ["http://localhost:3000"],
+    origin: ["https://blog-dph-frontend-43hg-5ev47xpv9-cristinavrs-projects.vercel.app"],
     credentials: true,
     exposedHeaders: ["set-cookie"],
   })
